@@ -1,75 +1,122 @@
-var mysql = require("mysql");
-var inquirer = require("inquirer");
+const allQuestions = require("./questions")
+const queries = require("./queries")
 
-var connection = mysql.createConnection({
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "password",
-  database: "employeeDB"
-});
-
-connection.connect(function(err) {
-  if (err) throw err;
-  console.log("connected as id " + connection.threadId + "\n");
-  start();
-});
-
-function start(){
-    inquirer.prompt({
-        type: "list",
-        message: "What would you like to do?",
-        name: "start",
-        choices: [
-            "Add department",
-            "Add role", "Add employee", "View departments", "View roles", "View employees", "Update employee roles", "Exit"]
-    }).then(function(answer){
-        switch (answer.start) {
-            case "Add department":
-                addDepartment();
+mainMenu()
+function mainMenu() {
+    allQuestions.mainQuestionMenu().then(result => {
+        switch (result) {
+            case allQuestions.ALL_EMPLOYEES:
+                viewEmployees()
                 break;
-
-            case "View departments":
-                viewDepartments();
+            case allQuestions.ALL_DEPARTMENTS:
+                viewDepartments()
                 break;
-        
+            case allQuestions.ALL_ROLES:
+                viewRoles()
+                break;
+            case allQuestions.ADD_EMPLOYEE:
+                addEmployee()
+                break;
+            case allQuestions.ADD_DEPARTMENT:
+                addDepartment()
+                break;
+            case allQuestions.ADD_ROLE:
+                addRole()
+                break;
             default:
-                connection.end();
+                connection.end()
                 break;
         }
     })
-}
+};
 
-function viewDepartments(){
-    connection.query("SELECT * FROM departments", function(err, res){
-        if (err) throw err;
-        console.table(res);
-        start();
+// also triggers roleOption so after viewing roles, they can choose to add role or go back to main menu
+function viewRoles() {
+    queries.roleAll().then(result => {
+        console.table(result);
+        // returns roleOption function from inq.js
+        return allQuestions.roleOptions()
+    }).then(result => {
+        switch (result) {
+            case allQuestions.MAIN_MENU:
+                mainMenu()
+                break;
+            case allQuestions.ADD_ROLE:
+                addRole()
+                break;
+        }
+    })
+};
+
+function addRole() {
+    allQuestions.newRole().then(result => {
+        return queries.addRole(result.title, result.salary, result.departmentId)
+    }).then(result => {
+        viewRoles()
+    })
+};
+
+function viewEmployees() {
+    queries.employeeAll().then(result => {
+        console.table(result);
+        //===========================================
+        return allQuestions.employeeOptions()
+    }).then(result => {
+        switch (result) {
+            case allQuestions.MAIN_MENU:
+                mainMenu()
+                break;
+            case allQuestions.ADD_EMPLOYEE:
+                addEmployee()
+                break;
+            case allQuestions.UPDATE_ROLE:
+                updateEmployeeRole()
+                break;
+        }
+    })
+    //=========================================
+};
+
+function updateEmployeeRole() {
+    allQuestions.updateEmployeeRole().then(result => {
+        return queries.updateEmployeeRole(result.employeeId, result.roleId)        
+    }).then(result =>{
+        viewEmployees()
     })
 }
 
-//SELECT departments.name FROM roles LEFT JOIN departments WHERE roles.department_id = departments.id
-
-function addDepartment(){
-    inquirer.prompt({
-        type: "input",
-        message: "What is the name of the department?",
-        name:"name"
-    }).then(function(answer){
-        connection.query("INSERT INTO departments SET ?",
-        answer,
-        function(err, res){
-            if (err) throw err;
-            console.log("Deparment Added!")
-            start();
-        })
+//=========================================
+function addEmployee() {
+    allQuestions.newEmployee().then(result => {
+        return queries.addRole(result.first_name, result.last_name, result.role_id, result.manager_id)
+    }).then(result => {
+        viewEmployees()
     })
-}
+};
 
-// let viewDepartments = function(){
+//==========================================
 
-// }
+function viewDepartments() {
+    queries.departmentAll().then(result => {
+        console.table(result);
+        return allQuestions.departmentOptions()
+    }).then(result => {
+        switch (result) {
+            case allQuestions.MAIN_MENU:
+                mainMenu()
+                break;
+            case allQuestions.ADD_DEPARTMENT:
+                addDepartment()
+                break;
 
-// let viewDepartments = ()=>{
+        }
+    })
+};
 
-// }
+function addDepartment() {
+    allQuestions.newDepartment().then(result => {
+        return queries.addDepartment(result)
+    }).then(result => {
+        viewDepartments()
+    })
+};
